@@ -2,6 +2,8 @@
   import { Building2, UserCheck, Users, Clock, ChevronDown, ChevronUp, FileWarning, UserX } from 'lucide-svelte';
   import type { TeamOrder } from '../types';
   import AlertBadge from './AlertBadge.svelte';
+  import OverCapacityAlert from './OverCapacityAlert.svelte';
+  import MissingDocsAlert from './MissingDocsAlert.svelte';
 
   export let team: TeamOrder;
   export let expanded = false;
@@ -13,6 +15,7 @@
     verified: { text: '已核验', bg: 'bg-success/10', textColor: 'text-success', border: 'border-success/30' },
     partial: { text: '部分核验', bg: 'bg-primary-500/10', textColor: 'text-primary-500', border: 'border-primary-500/30' },
     cancelled: { text: '已取消', bg: 'bg-gray-100', textColor: 'text-gray-500', border: 'border-gray-200' },
+    pending_docs: { text: '待补证件', bg: 'bg-amber-100', textColor: 'text-amber-700', border: 'border-amber-300' },
   };
 
   const status = statusConfig[team.status];
@@ -91,7 +94,15 @@
 
   {#if expanded}
     <div class="border-t border-gray-100 p-4 bg-gray-50">
-      <div class="space-y-3">
+      <div class="space-y-4">
+        {#if team.isOverCapacity}
+          <OverCapacityAlert {team} />
+        {/if}
+
+        {#if team.missingIdCardCount > 0}
+          <MissingDocsAlert {team} />
+        {/if}
+
         <div class="flex items-center justify-between text-sm">
           <span class="text-gray-500 flex items-center gap-2">
             <Users class="w-4 h-4" />
@@ -108,7 +119,7 @@
           {#each team.visitors.slice(0, 16) as visitor}
             <div 
               class="aspect-square rounded-lg flex items-center justify-center text-xs font-medium transition-all {visitor.isVerified ? 'bg-emerald-50 text-emerald-600' : visitor.isAbsent ? 'bg-rose-50 text-rose-600' : 'bg-gray-200 text-gray-500'} {!visitor.hasIdCard ? 'border-2 border-amber-500' : ''}"
-              title="{visitor.name}"
+              title="{visitor.name}{!visitor.hasIdCard && visitor.missingDocType ? ' (缺' + (visitor.missingDocType === 'id_card' ? '身份证' : visitor.missingDocType === 'child_statement' ? '儿童身份说明' : '护照') + ')' : ''}"
             >
               {visitor.name.slice(-2)}
             </div>
@@ -122,9 +133,14 @@
         {#if onSelect}
           <button 
             on:click|stopPropagation={onSelect}
-            class="w-full py-2 px-4 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors"
+            class="w-full py-2 px-4 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!team.canVerify}
           >
-            查看详情 / 核验
+            {#if !team.canVerify}
+              暂不可核验（请先补齐证件）
+            {:else}
+              查看详情 / 核验
+            {/if}
           </button>
         {/if}
       </div>

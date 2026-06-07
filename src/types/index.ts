@@ -11,10 +11,27 @@ export interface Visitor {
   id: string;
   name: string;
   idCard: string;
-  idCardType: 'id_card' | 'passport' | 'other';
+  idCardType: 'id_card' | 'passport' | 'child_statement' | 'other';
   isVerified: boolean;
   isAbsent: boolean;
   hasIdCard: boolean;
+  missingDocType?: 'id_card' | 'child_statement' | 'passport' | 'none';
+}
+
+export interface SplitBatch {
+  batchNo: number;
+  timeSlot: TimeSlot;
+  visitorCount: number;
+  visitorIds: string[];
+  isConfirmed: boolean;
+}
+
+export interface MissingDocInfo {
+  visitorId: string;
+  visitorName: string;
+  missingType: 'id_card' | 'child_statement' | 'passport';
+  supplementDeadline?: string;
+  isSupplied: boolean;
 }
 
 export interface Guide {
@@ -32,7 +49,13 @@ export interface TravelAgency {
   contactPhone: string;
 }
 
-export type TeamStatus = 'pending' | 'verified' | 'partial' | 'cancelled';
+export type TeamStatus = 'pending' | 'verified' | 'partial' | 'cancelled' | 'pending_docs';
+
+export interface OverCapacityInfo {
+  overCount: number;
+  availableSlots: TimeSlot[];
+  isSplitConfirmed: boolean;
+}
 
 export interface TeamOrder {
   id: string;
@@ -46,7 +69,12 @@ export interface TeamOrder {
   absentCount: number;
   visitors: Visitor[];
   isOverCapacity: boolean;
+  overCapacityInfo?: OverCapacityInfo;
+  splitBatches?: SplitBatch[];
   missingIdCardCount: number;
+  missingDocs?: MissingDocInfo[];
+  supplementDeadline?: string;
+  canVerify: boolean;
   status: TeamStatus;
   createTime: string;
 }

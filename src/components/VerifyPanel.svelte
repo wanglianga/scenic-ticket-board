@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { CheckSquare, UserX, UserPlus, AlertTriangle } from 'lucide-svelte';
+  import { CheckSquare, UserX, UserPlus, AlertTriangle, FileWarning, Clock } from 'lucide-svelte';
   import type { TeamOrder } from '../types';
+  import { formatDateTime } from '../utils/format';
 
   export let team: TeamOrder;
   export let onVerifyAll: (() => void) | undefined = undefined;
@@ -51,10 +52,32 @@
   {/if}
 
   {#if team.missingIdCardCount > 0}
-    <div class="mb-4 p-3 bg-warning-50 border border-warning-200 rounded-lg">
-      <div class="flex items-center gap-2 text-warning-700">
+    <div class="mb-4 p-3 bg-warning/5 border border-warning/20 rounded-lg">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div class="flex items-center gap-2 text-warning-700">
+          <FileWarning class="w-4 h-4" />
+          <span class="text-sm">
+            有 <strong>{team.missingIdCardCount}</strong> 名游客证件信息缺失
+            {#if !team.canVerify}
+              ，<strong>团队暂不可核验</strong>
+            {/if}
+          </span>
+        </div>
+        {#if team.supplementDeadline}
+          <div class="flex items-center gap-1 text-xs text-gray-500">
+            <Clock class="w-3.5 h-3.5" />
+            补充期限：{formatDateTime(new Date(team.supplementDeadline))}
+          </div>
+        {/if}
+      </div>
+    </div>
+  {/if}
+
+  {#if team.isOverCapacity && team.splitBatches && team.splitBatches.length > 0}
+    <div class="mb-4 p-3 bg-primary-50 border border-primary-200 rounded-lg">
+      <div class="flex items-center gap-2 text-primary-700">
         <AlertTriangle class="w-4 h-4" />
-        <span class="text-sm">有 <strong>{team.missingIdCardCount}</strong> 名游客证件信息缺失，请核对</span>
+        <span class="text-sm">该团队已拆分入园，共 <strong>{team.splitBatches.length}</strong> 个批次</span>
       </div>
     </div>
   {/if}
@@ -62,15 +85,19 @@
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
     <button
       on:click={onVerifyAll}
-      disabled={pendingCount === 0}
+      disabled={pendingCount === 0 || !team.canVerify}
       class="flex items-center justify-center gap-2 py-3 px-4 bg-success text-white rounded-lg font-medium hover:bg-success/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
     >
       <CheckSquare class="w-5 h-5" />
-      一键全部核验
+      {#if !team.canVerify}
+        请先补齐证件
+      {:else}
+        一键全部核验
+      {/if}
     </button>
     <button
       on:click={onMarkAbsentBatch}
-      disabled={pendingCount === 0}
+      disabled={pendingCount === 0 || !team.canVerify}
       class="flex items-center justify-center gap-2 py-3 px-4 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
     >
       <UserX class="w-5 h-5" />

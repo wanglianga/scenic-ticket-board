@@ -1,4 +1,4 @@
-import type { TeamOrder, TimeSlot, RefundRecord } from '../types';
+import type { TeamOrder, TimeSlot, RefundRecord, MissingDocInfo, SplitBatch, Visitor } from '../types';
 
 const agencies = [
   { id: 'a1', name: '阳光旅行社', contactPerson: '张经理', contactPhone: '13800138001' },
@@ -17,26 +17,58 @@ const timeSlots: TimeSlot[] = [
   { id: 's6', startTime: '16:30', endTime: '18:00', totalCapacity: 200, bookedCount: 80, remainingCount: 120 },
 ];
 
-function generateVisitors(count: number, verifiedCount: number, missingIdCard: number): any[] {
-  const visitors = [];
+function generateVisitors(count: number, verifiedCount: number, missingIdCard: number, missingChildStatement: number = 0, missingPassport: number = 0): Visitor[] {
+  const visitors: Visitor[] = [];
   const surnames = ['王', '李', '张', '刘', '陈', '杨', '黄', '赵', '周', '吴'];
   const names = ['伟', '芳', '娜', '秀英', '敏', '静', '丽', '强', '磊', '军', '洋', '勇', '艳', '杰', '娟', '涛'];
 
   for (let i = 0; i < count; i++) {
     const surname = surnames[Math.floor(Math.random() * surnames.length)];
     const name = names[Math.floor(Math.random() * names.length)];
-    const hasId = i >= count - missingIdCard ? false : true;
+    
+    let hasId = true;
+    let idCardType: Visitor['idCardType'] = 'id_card';
+    let missingDocType: Visitor['missingDocType'] = 'none';
+    
+    if (i >= count - missingIdCard - missingChildStatement - missingPassport) {
+      if (i >= count - missingPassport) {
+        hasId = false;
+        idCardType = 'passport';
+        missingDocType = 'passport';
+      } else if (i >= count - missingPassport - missingChildStatement) {
+        hasId = false;
+        idCardType = 'child_statement';
+        missingDocType = 'child_statement';
+      } else {
+        hasId = false;
+        idCardType = 'id_card';
+        missingDocType = 'id_card';
+      }
+    }
+    
     visitors.push({
       id: `v${Date.now()}${i}`,
       name: surname + name,
       idCard: hasId ? `110101199${Math.floor(Math.random() * 9)}${String(Math.floor(Math.random() * 100000000)).padStart(8, '0')}` : '',
-      idCardType: 'id_card' as const,
+      idCardType,
       isVerified: i < verifiedCount,
       isAbsent: false,
       hasIdCard: hasId,
+      missingDocType,
     });
   }
   return visitors;
+}
+
+function generateMissingDocs(visitors: Visitor[]): MissingDocInfo[] {
+  return visitors
+    .filter(v => !v.hasIdCard && v.missingDocType && v.missingDocType !== 'none')
+    .map(v => ({
+      visitorId: v.id,
+      visitorName: v.name,
+      missingType: v.missingDocType! as 'id_card' | 'child_statement' | 'passport',
+      isSupplied: false,
+    }));
 }
 
 function generateGuide(confirmed: boolean) {
@@ -66,6 +98,7 @@ export const mockTeams: TeamOrder[] = [
     visitors: generateVisitors(45, 45, 0),
     isOverCapacity: false,
     missingIdCardCount: 0,
+    canVerify: true,
     status: 'verified',
     createTime: new Date(Date.now() - 86400000).toISOString(),
   },
@@ -79,10 +112,13 @@ export const mockTeams: TeamOrder[] = [
     totalVisitors: 35,
     verifiedCount: 30,
     absentCount: 2,
-    visitors: generateVisitors(35, 30, 1),
+    visitors: generateVisitors(35, 30, 1, 0, 0),
     isOverCapacity: false,
     missingIdCardCount: 1,
-    status: 'partial',
+    missingDocs: generateMissingDocs(generateVisitors(35, 30, 1, 0, 0)),
+    supplementDeadline: new Date(Date.now() + 86400000).toISOString(),
+    canVerify: false,
+    status: 'pending_docs',
     createTime: new Date(Date.now() - 7200000).toISOString(),
   },
   {
@@ -95,9 +131,16 @@ export const mockTeams: TeamOrder[] = [
     totalVisitors: 55,
     verifiedCount: 0,
     absentCount: 0,
-    visitors: generateVisitors(55, 0, 3),
+    visitors: generateVisitors(55, 0, 2, 1, 0),
     isOverCapacity: true,
+    overCapacityInfo: {
+      overCount: 15,
+      availableSlots: [timeSlots[2], timeSlots[4]],
+      isSplitConfirmed: false,
+    },
     missingIdCardCount: 3,
+    missingDocs: generateMissingDocs(generateVisitors(55, 0, 2, 1, 0)),
+    canVerify: false,
     status: 'pending',
     createTime: new Date(Date.now() - 3600000).toISOString(),
   },
@@ -114,6 +157,7 @@ export const mockTeams: TeamOrder[] = [
     visitors: generateVisitors(40, 0, 0),
     isOverCapacity: false,
     missingIdCardCount: 0,
+    canVerify: true,
     status: 'pending',
     createTime: new Date(Date.now() - 1800000).toISOString(),
   },
@@ -130,6 +174,7 @@ export const mockTeams: TeamOrder[] = [
     visitors: generateVisitors(25, 0, 0),
     isOverCapacity: false,
     missingIdCardCount: 0,
+    canVerify: true,
     status: 'pending',
     createTime: new Date(Date.now() - 900000).toISOString(),
   },
@@ -137,16 +182,40 @@ export const mockTeams: TeamOrder[] = [
     id: 't6',
     orderNo: 'TM20240606006',
     agency: agencies[0],
-    guide: generateGuide(false),
+    guide: generateGuide(true),
     timeSlot: timeSlots[3],
     visitDate: new Date().toISOString().split('T')[0],
     totalVisitors: 60,
     verifiedCount: 0,
     absentCount: 0,
-    visitors: generateVisitors(60, 0, 5),
+    visitors: generateVisitors(60, 0, 3, 1, 1),
     isOverCapacity: true,
+    overCapacityInfo: {
+      overCount: 20,
+      availableSlots: [timeSlots[4], timeSlots[5]],
+      isSplitConfirmed: true,
+    },
+    splitBatches: [
+      {
+        batchNo: 1,
+        timeSlot: timeSlots[3],
+        visitorCount: 40,
+        visitorIds: generateVisitors(60, 0, 3, 1, 1).slice(0, 40).map(v => v.id),
+        isConfirmed: true,
+      },
+      {
+        batchNo: 2,
+        timeSlot: timeSlots[4],
+        visitorCount: 20,
+        visitorIds: generateVisitors(60, 0, 3, 1, 1).slice(40).map(v => v.id),
+        isConfirmed: true,
+      },
+    ],
     missingIdCardCount: 5,
-    status: 'pending',
+    missingDocs: generateMissingDocs(generateVisitors(60, 0, 3, 1, 1)),
+    supplementDeadline: new Date(Date.now() + 172800000).toISOString(),
+    canVerify: false,
+    status: 'pending_docs',
     createTime: new Date(Date.now() - 600000).toISOString(),
   },
   {
@@ -162,8 +231,31 @@ export const mockTeams: TeamOrder[] = [
     visitors: generateVisitors(30, 0, 0),
     isOverCapacity: false,
     missingIdCardCount: 0,
+    canVerify: true,
     status: 'pending',
     createTime: new Date().toISOString(),
+  },
+  {
+    id: 't8',
+    orderNo: 'TM20240606008',
+    agency: agencies[2],
+    guide: generateGuide(true),
+    timeSlot: timeSlots[1],
+    visitDate: new Date().toISOString().split('T')[0],
+    totalVisitors: 70,
+    verifiedCount: 0,
+    absentCount: 0,
+    visitors: generateVisitors(70, 0, 0),
+    isOverCapacity: true,
+    overCapacityInfo: {
+      overCount: 30,
+      availableSlots: [timeSlots[2], timeSlots[3], timeSlots[4]],
+      isSplitConfirmed: false,
+    },
+    missingIdCardCount: 0,
+    canVerify: true,
+    status: 'pending',
+    createTime: new Date(Date.now() - 300000).toISOString(),
   },
 ];
 
