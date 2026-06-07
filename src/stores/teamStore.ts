@@ -1,14 +1,16 @@
 import { writable, derived } from 'svelte/store';
-import type { TeamOrder, TimeSlot } from '../types';
-import { mockTeams, mockTimeSlots } from '../data/mockTeams';
+import type { TeamOrder, TimeSlot, RefundRecord } from '../types';
+import { mockTeams, mockTimeSlots, mockRefundRecords } from '../data/mockTeams';
 
 const createTeamStore = () => {
   const { subscribe, set, update } = writable<TeamOrder[]>(mockTeams);
   const { subscribe: subscribeSlots, set: setSlots, update: updateSlots } = writable<TimeSlot[]>(mockTimeSlots);
+  const { subscribe: subscribeRefunds, set: setRefunds, update: updateRefunds } = writable<RefundRecord[]>(mockRefundRecords);
 
   return {
     subscribe,
     subscribeSlots,
+    subscribeRefunds,
     
     verifyVisitor: (teamId: string, visitorId: string) => {
       update(teams => teams.map(team => {

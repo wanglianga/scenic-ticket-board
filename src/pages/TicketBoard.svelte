@@ -2,9 +2,10 @@
   import { Search, Filter, AlertTriangle, Users, Clock } from 'lucide-svelte';
   import CapacityCard from '../components/CapacityCard.svelte';
   import TeamCard from '../components/TeamCard.svelte';
+  import RefundRecordList from '../components/RefundRecordList.svelte';
   import { teamStore, abnormalTeams } from '../stores/teamStore';
   import { getNextDays } from '../utils/format';
-  import type { TeamOrder, TimeSlot } from '../types';
+  import type { TeamOrder, TimeSlot, RefundRecord } from '../types';
 
   const nextDays = getNextDays(1);
   let searchQuery = '';
@@ -12,9 +13,14 @@
   let expandedTeamId: string | null = null;
   let selectedTimeSlot: string | null = null;
   let slots: TimeSlot[] = [];
+  let refundRecords: RefundRecord[] = [];
   
   teamStore.subscribeSlots(s => {
     slots = s;
+  });
+
+  teamStore.subscribeRefunds(r => {
+    refundRecords = r;
   });
 
   $: filteredTeams = $teamStore.filter(team => {
@@ -44,6 +50,10 @@
 
 <div class="space-y-6">
   <CapacityCard date={nextDays[0]} slots={slots} />
+
+  {#if refundRecords.length > 0}
+    <RefundRecordList records={refundRecords} />
+  {/if}
 
   <section>
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
