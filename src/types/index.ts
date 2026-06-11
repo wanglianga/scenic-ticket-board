@@ -74,6 +74,7 @@ export interface TeamOrder {
   missingIdCardCount: number;
   missingDocs?: MissingDocInfo[];
   supplementDeadline?: string;
+  substitutes: SubstituteRecord[];
   canVerify: boolean;
   status: TeamStatus;
   createTime: string;
@@ -94,6 +95,32 @@ export interface RefundRecord {
   operator: string;
   reason: string;
   operateTime: string;
+}
+
+export interface SubstituteRecord {
+  id: string;
+  originalVisitorId: string;
+  originalVisitorName: string;
+  originalVisitorIdCard: string;
+  substituteVisitor: Visitor;
+  reason: string;
+  operator: string;
+  operateTime: string;
+  isVerified: boolean;
+}
+
+export interface GateDetail {
+  id: string;
+  name: string;
+  isOnline: boolean;
+  todayPassengerCount: number;
+  currentQueueLength: number;
+  currentTeam?: TeamOrder;
+  pendingTeams: TeamOrder[];
+  avgPassSpeed: number;
+  abnormalVisitors: Visitor[];
+  recentPassTime: string[];
+  isBackup: boolean;
 }
 
 export type UserRole = 'ticket' | 'gate';

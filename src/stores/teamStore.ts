@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store';
-import type { TeamOrder, TimeSlot, RefundRecord, SplitBatch } from '../types';
+import type { TeamOrder, TimeSlot, RefundRecord, SplitBatch, SubstituteRecord, Visitor } from '../types';
 import { mockTeams, mockTimeSlots, mockRefundRecords } from '../data/mockTeams';
 
 const createTeamStore = () => {
@@ -98,6 +98,50 @@ const createTeamStore = () => {
           canVerify: !hasMissingDocs,
           status: hasMissingDocs ? 'pending_docs' as const : (team.status === 'pending_docs' ? 'pending' as const : team.status)
         };
+      }));
+    },
+
+    substituteVisitor: (teamId: string, originalVisitorId: string, substituteVisitor: Visitor, reason: string, operator: string) => {
+      update(teams => teams.map(team => {
+        if (team.id !== teamId) return team;
+        const originalVisitor = team.visitors.find(v => v.id === originalVisitorId);
+        if (!originalVisitor) return team;
+        const substituteRecord: SubstituteRecord = {
+          id: `sub${Date.now()}`,
+          originalVisitorId: originalVisitor.id,
+          originalVisitorName: originalVisitor.name,
+          originalVisitorIdCard: originalVisitor.idCard,
+          substituteVisitor: { ...substituteVisitor, id: `v${Date.now()}new` },
+          reason,
+          operator,
+          operateTime: new Date().toISOString(),
+          isVerified: false,
+        };
+        const visitors = team.visitors.map(v =>
+          v.id === originalVisitorId ? substituteRecord.substituteVisitor : v
+        );
+        const substitutes = [substituteRecord, ...team.substitutes];
+        return { ...team, visitors, substitutes };
+      }));
+    },
+
+    verifySubstitute: (teamId: string, substituteId: string) => {
+      update(teams => teams.map(team => {
+        if (team.id !== teamId) return team;
+        const substitutes = team.substitutes.map(s =>
+          s.id === substituteId ? { ...s, isVerified: true } : s
+        );
+        const sub = team.substitutes.find(s => s.id === substituteId);
+        let visitors = team.visitors;
+        let verifiedCount = team.verifiedCount;
+        if (sub) {
+          visitors = team.visitors.map(v =>
+            v.id === sub.substituteVisitor.id ? { ...v, isVerified: true } : v
+          );
+          verifiedCount = visitors.filter(v => v.isVerified).length;
+        }
+        const status = verifiedCount === team.totalVisitors ? 'verified' as const : 'partial' as const;
+        return { ...team, substitutes, visitors, verifiedCount, status };
       }));
     },
 
